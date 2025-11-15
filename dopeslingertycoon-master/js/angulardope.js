@@ -376,7 +376,11 @@ var drugsMaster = createDrugsMaster();
       $scope.kingpins = [];
       $scope.options = {
         autoSilk : false,
-        hideTop : false
+        hideTop : false,
+        automation: {
+          autoHeist: false,
+          autoInformant: false
+        }
       };
       var specialOps = ($window.DopeMixins && typeof $window.DopeMixins.attachSpecialOps === 'function') ?
         $window.DopeMixins.attachSpecialOps($scope, {
@@ -829,6 +833,16 @@ var drugsMaster = createDrugsMaster();
           if (localStorage.getItem("options") !== null) $scope.options = JSON.parse(localStorage.getItem("options"));
         } catch (e) {
           console.log(e);
+        }
+
+        if (!$scope.options.automation) {
+          $scope.options.automation = {};
+        }
+        if (typeof $scope.options.automation.autoHeist !== 'boolean') {
+          $scope.options.automation.autoHeist = false;
+        }
+        if (typeof $scope.options.automation.autoInformant !== 'boolean') {
+          $scope.options.automation.autoInformant = false;
         }
 
         if ($scope.options.hideTop) {
