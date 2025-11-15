@@ -238,11 +238,6 @@
     var defaultHeistStatus = 'Crew is idle and ready for orders.';
     var defaultInformantStatus = 'No informants currently on the payroll.';
 
-    var automationDefaults = {
-      autoHeist: false,
-      autoInformant: false
-    };
-
     $scope.heistRespectCost = heistRespectCost;
     $scope.heistDurationSeconds = heistDurationSeconds;
     $scope.heistCooldownSeconds = heistCooldownSeconds;
@@ -252,22 +247,6 @@
     $scope.heistProgress = $scope.heistProgress || 0;
     $scope.heistStatusMessage = $scope.heistStatusMessage || '';
     $scope.informantStatusMessage = $scope.informantStatusMessage || '';
-
-    function ensureAutomationSettings() {
-      if (!$scope.options) {
-        $scope.options = {};
-      }
-      if (!$scope.options.automation) {
-        $scope.options.automation = angular.copy(automationDefaults);
-      } else {
-        if (typeof $scope.options.automation.autoHeist !== 'boolean') {
-          $scope.options.automation.autoHeist = automationDefaults.autoHeist;
-        }
-        if (typeof $scope.options.automation.autoInformant !== 'boolean') {
-          $scope.options.automation.autoInformant = automationDefaults.autoInformant;
-        }
-      }
-    }
 
     function ensureDefaults() {
       if (!$scope.gameModel) {
@@ -318,7 +297,6 @@
     }
 
     ensureDefaults();
-    ensureAutomationSettings();
     syncMessages();
     syncProgress();
 
@@ -328,25 +306,6 @@
       }
       $scope.heistStatusMessage = message;
       $scope.gameModel.heistStatus = message;
-    }
-
-    function runAutomation(updateTime) {
-      if (!$scope.gameModel) {
-        return false;
-      }
-      ensureAutomationSettings();
-      var triggered = false;
-      var automation = $scope.options && $scope.options.automation;
-      if (automation && automation.autoHeist && heistReady(updateTime) && $scope.gameModel.respect >= heistRespectCost) {
-        $scope.startHeist();
-        triggered = true;
-      }
-      if (automation && automation.autoInformant && !isInformantActive(updateTime) &&
-        $scope.gameModel.cash >= informantCashCost && $scope.gameModel.respect >= informantRespectCost) {
-        $scope.hireInformant();
-        triggered = true;
-      }
-      return triggered;
     }
 
     function setInformantStatus(message) {
@@ -509,20 +468,6 @@
       }
     });
 
-    $scope.$watch('options.automation.autoHeist', function (value, previous) {
-      if (typeof value === 'boolean' && value !== previous) {
-        ensureAutomationSettings();
-        writeToCookie();
-      }
-    });
-
-    $scope.$watch('options.automation.autoInformant', function (value, previous) {
-      if (typeof value === 'boolean' && value !== previous) {
-        ensureAutomationSettings();
-        writeToCookie();
-      }
-    });
-
     $scope.$watch(function () {
       return $scope.gameModel;
     }, function (model) {
@@ -530,20 +475,15 @@
         return;
       }
       ensureDefaults();
-      ensureAutomationSettings();
       syncMessages();
       syncProgress();
     });
 
     function onTick(updateTime) {
       ensureDefaults();
-      ensureAutomationSettings();
       var changed = false;
       if (!$scope.gameModel) {
         return changed;
-      }
-      if (runAutomation(updateTime)) {
-        changed = true;
       }
       if ($scope.gameModel.informantExpires && $scope.gameModel.informantExpires <= updateTime) {
         $scope.gameModel.informantExpires = 0;
@@ -568,7 +508,6 @@
       ensureDefaults: ensureDefaults,
       onReady: function () {
         ensureDefaults();
-        ensureAutomationSettings();
         syncMessages();
         syncProgress();
       },

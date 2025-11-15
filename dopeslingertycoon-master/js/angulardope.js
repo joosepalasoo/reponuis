@@ -402,6 +402,13 @@ var drugsMaster = createDrugsMaster();
         }) : {
           ensureState: function () {}
         };
+      $scope.modMenu = {
+        cashAmount: 1000000,
+        respectAmount: 10000,
+        territoryAmount: 1,
+        discountAmount: 1
+      };
+      $scope.modMenuMessage = '';
       $scope.cashPerSecond = 0;
       $scope.prestiged = false;
       $scope.hireDealers = [];
@@ -410,6 +417,38 @@ var drugsMaster = createDrugsMaster();
       $scope.kongregateLargeWindow = function () { $scope.options.kongregateLargeWindow = true;};
       $scope.kongregateSmallWindow = function () { $scope.options.kongregateLargeWindow = false;};
       $scope.hideTop = function () { alwaysShowScroll = !alwaysShowScroll; $scope.options.hideTop = !$scope.options.hideTop; fadeTop();};
+      $scope.openModMenu = function () {
+        $scope.modMenuMessage = '';
+        $('#modMenuModal').modal('show');
+        $timeout(function () {
+          var cashInput = document.getElementById('modCashInput');
+          if (cashInput) {
+            cashInput.focus();
+            cashInput.select();
+          }
+        }, 200);
+      };
+
+      function applyCash(amount) {
+        $scope.gameModel.cash += amount;
+        $scope.gameModel.totalCashEarned += amount;
+        writeToCookie();
+      }
+
+      function applyRespect(amount) {
+        $scope.gameModel.respect += amount;
+        writeToCookie();
+      }
+
+      function applyTerritoryUpgrades(amount) {
+        $scope.gameModel.territoryUpgrades += amount;
+        writeToCookie();
+      }
+
+      function applyDiscountUpgrades(amount) {
+        $scope.gameModel.discountUpgrades += amount;
+        writeToCookie();
+      }
       $scope.priceOfTerritory = function () { return territoryUpgradeBasePrice * Math.pow(territoryUpgradePriceMulti, $scope.gameModel.territoryUpgrades); };
       $scope.priceOfDiscount = function () { return discountUpgradeBasePrice * Math.pow(discountUpgradePriceMulti, $scope.gameModel.discountUpgrades); };
       $scope.cashPercentage = function (value) { return Math.min(100, $scope.gameModel.cash / value * 100); };
@@ -499,6 +538,112 @@ var drugsMaster = createDrugsMaster();
             }
           }
         }
+      };
+
+      $scope.modAddCash = function () {
+        var amount = parseFloat($scope.modMenu.cashAmount);
+        if (isNaN(amount) || amount <= 0) {
+          $scope.modMenuMessage = 'Enter a cash amount greater than 0.';
+          return;
+        }
+        applyCash(amount);
+        $scope.modMenuMessage = 'Added $' + formatNumber(amount) + ' cash.';
+      };
+
+      $scope.modAddRespect = function () {
+        var amount = parseFloat($scope.modMenu.respectAmount);
+        if (isNaN(amount) || amount <= 0) {
+          $scope.modMenuMessage = 'Enter a respect amount greater than 0.';
+          return;
+        }
+        applyRespect(amount);
+        $scope.modMenuMessage = 'Added ' + formatNumber(amount) + ' respect.';
+      };
+
+      $scope.modAddTerritory = function () {
+        var amount = parseInt($scope.modMenu.territoryAmount, 10);
+        if (isNaN(amount) || amount <= 0) {
+          $scope.modMenuMessage = 'Enter the number of territory upgrades to grant.';
+          return;
+        }
+        applyTerritoryUpgrades(amount);
+        $scope.modMenuMessage = 'Granted ' + amount + ' territory upgrade' + (amount === 1 ? '' : 's') + '.';
+      };
+
+      $scope.modAddDiscount = function () {
+        var amount = parseInt($scope.modMenu.discountAmount, 10);
+        if (isNaN(amount) || amount <= 0) {
+          $scope.modMenuMessage = 'Enter the number of discount upgrades to grant.';
+          return;
+        }
+        applyDiscountUpgrades(amount);
+        $scope.modMenuMessage = 'Granted ' + amount + ' price discount upgrade' + (amount === 1 ? '' : 's') + '.';
+      };
+
+      $scope.modQuickAddCash = function (amount) {
+        if (amount <= 0) {
+          return;
+        }
+        applyCash(amount);
+        $scope.modMenu.cashAmount = amount;
+        $scope.modMenuMessage = 'Added $' + formatNumber(amount) + ' cash.';
+      };
+
+      $scope.modQuickAddRespect = function (amount) {
+        if (amount <= 0) {
+          return;
+        }
+        applyRespect(amount);
+        $scope.modMenu.respectAmount = amount;
+        $scope.modMenuMessage = 'Added ' + formatNumber(amount) + ' respect.';
+      };
+
+      $scope.modQuickAddTerritory = function (amount) {
+        if (amount <= 0) {
+          return;
+        }
+        applyTerritoryUpgrades(amount);
+        $scope.modMenu.territoryAmount = amount;
+        $scope.modMenuMessage = 'Granted ' + amount + ' territory upgrade' + (amount === 1 ? '' : 's') + '.';
+      };
+
+      $scope.modQuickAddDiscount = function (amount) {
+        if (amount <= 0) {
+          return;
+        }
+        applyDiscountUpgrades(amount);
+        $scope.modMenu.discountAmount = amount;
+        $scope.modMenuMessage = 'Granted ' + amount + ' price discount upgrade' + (amount === 1 ? '' : 's') + '.';
+      };
+
+      $scope.modUnlockAllDrugs = function () {
+        var unlocked = 0;
+        for (var i = 0; i < drugsMaster.length; i++) {
+          if ($scope.getDrugByName(drugsMaster[i].name) === null) {
+            $scope.gameModel.drugs.push(drugsMaster[i]);
+            unlocked++;
+          }
+        }
+        if (unlocked > 0) {
+          $scope.calculateAvailableUpgrades();
+          $scope.updateDealerDrugIndex();
+        }
+        $scope.modMenuMessage = unlocked > 0 ? ('Unlocked ' + unlocked + ' drug' + (unlocked === 1 ? '' : 's') + '.') : 'All drugs are already unlocked.';
+        writeToCookie();
+      };
+
+      $scope.modReleaseDealers = function () {
+        var released = 0;
+        for (var i = 0; i < $scope.gameModel.dealers.length; i++) {
+          if ($scope.gameModel.dealers[i].arrested) {
+            $scope.gameModel.dealers[i].arrested = false;
+            $scope.gameModel.dealers[i].bail = 0;
+            $scope.gameModel.dealers[i].arrestMessage = false;
+            released++;
+          }
+        }
+        $scope.modMenuMessage = released > 0 ? ('Released ' + released + ' arrested dealer' + (released === 1 ? '' : 's') + '.') : 'No dealers are currently arrested.';
+        writeToCookie();
       };
 
       $scope.upgradeUnlocked = function (upgrade) {

@@ -16,13 +16,6 @@
                     <span class="glyphicon glyphicon-flash icongreen"></span> Launch Heist
                 </button>
                 <p class="text-danger small mt-10" ng-if="gameModel.respect < heistRespectCost">Earn more respect to convince the crew to move.</p>
-                <div class="checkbox mt-10">
-                    <label>
-                        <input type="checkbox" ng-model="options.automation.autoHeist">
-                        Auto-launch heists when ready
-                    </label>
-                </div>
-                <p class="text-muted small" ng-if="options.automation.autoHeist">Heists fire instantly once the cooldown ends and you have {{heistRespectCost|respect}} respect available.</p>
             </div>
         </div>
     </div>
@@ -40,13 +33,6 @@
                     <span class="glyphicon glyphicon-briefcase icongreen"></span> Bribe Informant (-{{informantCashCost|money}}, -{{informantRespectCost|respect}} respect)
                 </button>
                 <p class="text-danger small mt-10" ng-if="gameModel.cash < informantCashCost || gameModel.respect < informantRespectCost">You need {{informantCashCost|money}} and {{informantRespectCost|respect}} respect to keep the snitch quiet.</p>
-                <div class="checkbox mt-10">
-                    <label>
-                        <input type="checkbox" ng-model="options.automation.autoInformant">
-                        Auto-bribe informants when intel expires
-                    </label>
-                </div>
-                <p class="text-muted small" ng-if="options.automation.autoInformant">Keeps an informant on the payroll whenever you can afford {{informantCashCost|money}} and {{informantRespectCost|respect}} respect.</p>
             </div>
         </div>
     </div>
