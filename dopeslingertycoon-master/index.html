@@ -23,6 +23,7 @@
     <script src="js/angular-animate.min.js"></script>
     <script src="js/seedrandom.min.js"></script>
     <script src="js/jg-progress.js"></script>
+    <script src="js/dope-mixins.js"></script>
     <script src="js/angulardope.js"></script>
     <script>
 
@@ -170,6 +171,8 @@
                   <p class="distribution strong" ng-repeat="dealer in gameModel.dealers" ng-show="dealer.arrested">{{dealer.arrestMessage}}</p>
               </div>
             </div>
+
+            <div class="row special-ops-row" ng-include="'templates/special-ops.html'"></div>
 
 
             <div class="clearfix"></div>
