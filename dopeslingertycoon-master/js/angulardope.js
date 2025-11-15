@@ -376,8 +376,32 @@ var drugsMaster = createDrugsMaster();
       $scope.kingpins = [];
       $scope.options = {
         autoSilk : false,
-        hideTop : false
+        hideTop : false,
+        automation: {
+          autoHeist: false,
+          autoInformant: false
+        }
       };
+      var specialOps = ($window.DopeMixins && typeof $window.DopeMixins.attachSpecialOps === 'function') ?
+        $window.DopeMixins.attachSpecialOps($scope, {
+          writeToCookie: writeToCookie
+        }) : {
+          onReady: function () {},
+          onTick: function () { return false; },
+          isInformantActive: function () { return false; }
+        };
+      var modMenu = ($window.DopeMixins && typeof $window.DopeMixins.attachModMenu === 'function') ?
+        $window.DopeMixins.attachModMenu($scope, {
+          $timeout: $timeout,
+          writeToCookie: writeToCookie,
+          calculateAvailableUpgrades: function () {
+            if (typeof $scope.calculateAvailableUpgrades === 'function') {
+              $scope.calculateAvailableUpgrades();
+            }
+          }
+        }) : {
+          ensureState: function () {}
+        };
       $scope.cashPerSecond = 0;
       $scope.prestiged = false;
       $scope.hireDealers = [];
@@ -666,6 +690,16 @@ var drugsMaster = createDrugsMaster();
           console.log(e);
         }
 
+        if (!$scope.options.automation) {
+          $scope.options.automation = {};
+        }
+        if (typeof $scope.options.automation.autoHeist !== 'boolean') {
+          $scope.options.automation.autoHeist = false;
+        }
+        if (typeof $scope.options.automation.autoInformant !== 'boolean') {
+          $scope.options.automation.autoInformant = false;
+        }
+
         if ($scope.options.hideTop) {
           alwaysShowScroll = true;
           fadeTop();
@@ -920,6 +954,10 @@ var drugsMaster = createDrugsMaster();
 
         var dealers = $scope.gameModel.dealers.concat().sort(function(a,b){return b.price - a.price;});
 
+        if (specialOps.onTick(updateTime)) {
+          messagesHaveChanged = true;
+        }
+
         if ($scope.levelUpMsg && $scope.levelUpMsgExpires <= updateTime) {
           $scope.levelUpMsg = undefined;
           messagesHaveChanged = true;
@@ -1004,7 +1042,8 @@ var drugsMaster = createDrugsMaster();
         }
 
         if (lastSaved < updateTime - 30000) {
-          if (Math.random() > 0.96 && $scope.gameModel.totalCashEarned > 30000) {
+          var arrestThreshold = specialOps.isInformantActive(updateTime) ? 0.995 : 0.96;
+          if (Math.random() > arrestThreshold && $scope.gameModel.totalCashEarned > 30000) {
             var dealerToArrest = $scope.gameModel.dealers[Math.floor(Math.random() * $scope.gameModel.dealers.length)];
             if (!dealerToArrest.arrested && !dealerToArrest.payCops) {
               var bailValue = dealerToArrest.cashPerSecond * 95;
@@ -1038,18 +1077,23 @@ var drugsMaster = createDrugsMaster();
 
         function onReady() {
 
-          for (var i=0; i < $scope.prestigeDealers.length; i++) {
-            for (var j=0; j < $scope.gameModel.dealers.length; j++) {
-              if ($scope.prestigeDealers[i].seed == $scope.gameModel.dealers[j].seed) {
-                $scope.prestigeDealers[i] = $scope.gameModel.dealers[j];
-              }
+        for (var i=0; i < $scope.prestigeDealers.length; i++) {
+          for (var j=0; j < $scope.gameModel.dealers.length; j++) {
+            if ($scope.prestigeDealers[i].seed == $scope.gameModel.dealers[j].seed) {
+              $scope.prestigeDealers[i] = $scope.gameModel.dealers[j];
             }
           }
+        }
 
-          if (typeof $scope.gameModel.respect === "undefined") {
-            $scope.gameModel.respect = 0;
-            $scope.gameModel.muscle = [muscleMaster[0]];
-          }
+        specialOps.onReady();
+        if (modMenu.ensureState) {
+          modMenu.ensureState();
+        }
+
+        if (typeof $scope.gameModel.respect === "undefined") {
+          $scope.gameModel.respect = 0;
+          $scope.gameModel.muscle = [muscleMaster[0]];
+        }
 
           if (typeof $scope.gameModel.discountUpgrades === "undefined")
           $scope.gameModel.discountUpgrades = 0;
