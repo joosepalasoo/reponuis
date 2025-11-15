@@ -24,13 +24,6 @@ var territoryUpgradeBasePrice = 500;
 var discountUpgradePriceMulti = 3.8;
 var discountUpgradeBasePrice = 1000;
 
-var heistRespectCost = 750;
-var heistDurationSeconds = 30;
-var heistCooldownSeconds = 300;
-var informantCashCost = 50000;
-var informantRespectCost = 250;
-var informantDurationSeconds = 180;
-
 function DealerUpgrade(name, tooltip, price, volumeMod, priceMod, secondaryMod, synopsis) {
   this.name = name;
   this.tooltip = tooltip;
@@ -291,13 +284,6 @@ var drugsMaster = createDrugsMaster();
       this.workMode = false;
       this.lastDealerRefresh = 0;
       this.silkRoadUnlocked = false;
-      this.heistInProgress = false;
-      this.heistStartTime = 0;
-      this.heistCompleteTime = 0;
-      this.lastHeistTime = 0;
-      this.heistStatus = 'Crew is idle and ready for orders.';
-      this.informantExpires = 0;
-      this.informantStatus = 'No informants currently on the payroll.';
     }
 
     angular.module('dopeslingerApp', ['ngSanitize', 'ngAnimate','jg.progressbar'])
@@ -392,25 +378,26 @@ var drugsMaster = createDrugsMaster();
         autoSilk : false,
         hideTop : false
       };
-      var HEIST_DURATION_MS = heistDurationSeconds * 1000;
-      var HEIST_COOLDOWN_MS = heistCooldownSeconds * 1000;
-      var INFORMANT_DURATION_MS = informantDurationSeconds * 1000;
-      $scope.modMenu = {
-        cashAmount: 1000000,
-        respectAmount: 10000,
-        territoryAmount: 1,
-        discountAmount: 1
-      };
-      $scope.modMenuMessage = '';
-      $scope.heistRespectCost = heistRespectCost;
-      $scope.heistDurationSeconds = heistDurationSeconds;
-      $scope.heistCooldownSeconds = heistCooldownSeconds;
-      $scope.informantCashCost = informantCashCost;
-      $scope.informantRespectCost = informantRespectCost;
-      $scope.informantDurationSeconds = informantDurationSeconds;
-      $scope.heistProgress = 0;
-      $scope.heistStatusMessage = '';
-      $scope.informantStatusMessage = '';
+      var specialOps = ($window.DopeMixins && typeof $window.DopeMixins.attachSpecialOps === 'function') ?
+        $window.DopeMixins.attachSpecialOps($scope, {
+          writeToCookie: writeToCookie
+        }) : {
+          onReady: function () {},
+          onTick: function () { return false; },
+          isInformantActive: function () { return false; }
+        };
+      var modMenu = ($window.DopeMixins && typeof $window.DopeMixins.attachModMenu === 'function') ?
+        $window.DopeMixins.attachModMenu($scope, {
+          $timeout: $timeout,
+          writeToCookie: writeToCookie,
+          calculateAvailableUpgrades: function () {
+            if (typeof $scope.calculateAvailableUpgrades === 'function') {
+              $scope.calculateAvailableUpgrades();
+            }
+          }
+        }) : {
+          ensureState: function () {}
+        };
       $scope.cashPerSecond = 0;
       $scope.prestiged = false;
       $scope.hireDealers = [];
@@ -419,94 +406,6 @@ var drugsMaster = createDrugsMaster();
       $scope.kongregateLargeWindow = function () { $scope.options.kongregateLargeWindow = true;};
       $scope.kongregateSmallWindow = function () { $scope.options.kongregateLargeWindow = false;};
       $scope.hideTop = function () { alwaysShowScroll = !alwaysShowScroll; $scope.options.hideTop = !$scope.options.hideTop; fadeTop();};
-      $scope.openModMenu = function () {
-        $scope.modMenuMessage = '';
-        $('#modMenuModal').modal('show');
-        $timeout(function () {
-          var cashInput = document.getElementById('modCashInput');
-          if (cashInput) {
-            cashInput.focus();
-            cashInput.select();
-          }
-        }, 200);
-      };
-
-      function applyCash(amount) {
-        $scope.gameModel.cash += amount;
-        $scope.gameModel.totalCashEarned += amount;
-        writeToCookie();
-      }
-
-      function applyRespect(amount) {
-        $scope.gameModel.respect += amount;
-        writeToCookie();
-      }
-
-      function applyTerritoryUpgrades(amount) {
-        $scope.gameModel.territoryUpgrades += amount;
-        writeToCookie();
-      }
-
-      function applyDiscountUpgrades(amount) {
-        $scope.gameModel.discountUpgrades += amount;
-        writeToCookie();
-      }
-      function setHeistStatus(message) {
-        $scope.heistStatusMessage = message;
-        $scope.gameModel.heistStatus = message;
-      }
-      function setInformantStatus(message) {
-        $scope.informantStatusMessage = message;
-        $scope.gameModel.informantStatus = message;
-      }
-      function ensureSpecialOperationDefaults() {
-        var updated = false;
-        if (typeof $scope.gameModel.heistInProgress === 'undefined') {
-          $scope.gameModel.heistInProgress = false;
-          updated = true;
-        }
-        if (typeof $scope.gameModel.heistStartTime === 'undefined') {
-          $scope.gameModel.heistStartTime = 0;
-          updated = true;
-        }
-        if (typeof $scope.gameModel.heistCompleteTime === 'undefined') {
-          $scope.gameModel.heistCompleteTime = 0;
-          updated = true;
-        }
-        if (typeof $scope.gameModel.lastHeistTime === 'undefined') {
-          $scope.gameModel.lastHeistTime = 0;
-          updated = true;
-        }
-        if (typeof $scope.gameModel.heistStatus === 'undefined') {
-          $scope.gameModel.heistStatus = 'Crew is idle and ready for orders.';
-          updated = true;
-        }
-        if (typeof $scope.gameModel.informantExpires === 'undefined') {
-          $scope.gameModel.informantExpires = 0;
-          updated = true;
-        }
-        if (typeof $scope.gameModel.informantStatus === 'undefined') {
-          $scope.gameModel.informantStatus = 'No informants currently on the payroll.';
-          updated = true;
-        }
-        return updated;
-      }
-
-      $scope.$watch(function () { return $scope.gameModel && $scope.gameModel.heistStatus; }, function (value) {
-        if (typeof value === 'string' && value !== $scope.heistStatusMessage) {
-          $scope.heistStatusMessage = value;
-        }
-      });
-
-      $scope.$watch(function () { return $scope.gameModel && $scope.gameModel.informantStatus; }, function (value) {
-        if (typeof value === 'string' && value !== $scope.informantStatusMessage) {
-          $scope.informantStatusMessage = value;
-        }
-      });
-      function isInformantActive(referenceTime) {
-        var checkTime = referenceTime || Date.now();
-        return $scope.gameModel.informantExpires && $scope.gameModel.informantExpires > checkTime;
-      }
       $scope.priceOfTerritory = function () { return territoryUpgradeBasePrice * Math.pow(territoryUpgradePriceMulti, $scope.gameModel.territoryUpgrades); };
       $scope.priceOfDiscount = function () { return discountUpgradeBasePrice * Math.pow(discountUpgradePriceMulti, $scope.gameModel.discountUpgrades); };
       $scope.cashPercentage = function (value) { return Math.min(100, $scope.gameModel.cash / value * 100); };
@@ -531,67 +430,6 @@ var drugsMaster = createDrugsMaster();
           $timeout(fixTopPadding,10);
         }
 
-      };
-      $scope.heistReady = function () {
-        if ($scope.gameModel.heistInProgress)
-          return false;
-        var last = $scope.gameModel.lastHeistTime || 0;
-        return Date.now() >= last + HEIST_COOLDOWN_MS;
-      };
-      $scope.heistTimeRemaining = function () {
-        if (!$scope.gameModel.heistInProgress)
-          return 0;
-        return Math.max(0, Math.ceil(($scope.gameModel.heistCompleteTime - Date.now()) / 1000));
-      };
-      $scope.heistCooldownRemaining = function () {
-        if ($scope.gameModel.heistInProgress)
-          return $scope.heistTimeRemaining();
-        var last = $scope.gameModel.lastHeistTime || 0;
-        var next = last + HEIST_COOLDOWN_MS;
-        if (next <= Date.now())
-          return 0;
-        return Math.ceil((next - Date.now()) / 1000);
-      };
-      $scope.startHeist = function () {
-        if ($scope.gameModel.heistInProgress || !$scope.heistReady())
-          return;
-        if ($scope.gameModel.respect < heistRespectCost) {
-          setHeistStatus('You need more respect before the crew will risk another heist.');
-          return;
-        }
-        $scope.gameModel.respect -= heistRespectCost;
-        var now = Date.now();
-        $scope.gameModel.heistInProgress = true;
-        $scope.gameModel.heistStartTime = now;
-        $scope.gameModel.heistCompleteTime = now + HEIST_DURATION_MS;
-        $scope.gameModel.lastHeistTime = now;
-        $scope.heistProgress = 0;
-        setHeistStatus('Crew is executing the heist. Hold tight for ' + heistDurationSeconds + ' seconds.');
-        writeToCookie();
-      };
-      $scope.informantActive = function () {
-        return isInformantActive();
-      };
-      $scope.informantTimeRemaining = function () {
-        if (!isInformantActive())
-          return 0;
-        return Math.max(0, Math.ceil(($scope.gameModel.informantExpires - Date.now()) / 1000));
-      };
-      $scope.hireInformant = function () {
-        if ($scope.gameModel.cash < informantCashCost || $scope.gameModel.respect < informantRespectCost) {
-          setInformantStatus('You need more cash and respect before anyone will risk informing for you.');
-          return;
-        }
-        var wasActive = isInformantActive();
-        $scope.gameModel.cash -= informantCashCost;
-        $scope.gameModel.respect -= informantRespectCost;
-        var baseTime = wasActive ? $scope.gameModel.informantExpires : Date.now();
-        $scope.gameModel.informantExpires = baseTime + INFORMANT_DURATION_MS;
-        if (wasActive)
-          setInformantStatus('Your informant extended their cover for another ' + informantDurationSeconds + ' seconds.');
-        else
-          setInformantStatus('Your informant is feeding intel for the next ' + informantDurationSeconds + ' seconds.');
-        writeToCookie();
       };
       $scope.captainMulti = function () {
         var multi = $scope.kingpinMulti();
@@ -657,112 +495,6 @@ var drugsMaster = createDrugsMaster();
             }
           }
         }
-      };
-
-      $scope.modAddCash = function () {
-        var amount = parseFloat($scope.modMenu.cashAmount);
-        if (isNaN(amount) || amount <= 0) {
-          $scope.modMenuMessage = 'Enter a cash amount greater than 0.';
-          return;
-        }
-        applyCash(amount);
-        $scope.modMenuMessage = 'Added $' + formatNumber(amount) + ' cash.';
-      };
-
-      $scope.modAddRespect = function () {
-        var amount = parseFloat($scope.modMenu.respectAmount);
-        if (isNaN(amount) || amount <= 0) {
-          $scope.modMenuMessage = 'Enter a respect amount greater than 0.';
-          return;
-        }
-        applyRespect(amount);
-        $scope.modMenuMessage = 'Added ' + formatNumber(amount) + ' respect.';
-      };
-
-      $scope.modAddTerritory = function () {
-        var amount = parseInt($scope.modMenu.territoryAmount, 10);
-        if (isNaN(amount) || amount <= 0) {
-          $scope.modMenuMessage = 'Enter the number of territory upgrades to grant.';
-          return;
-        }
-        applyTerritoryUpgrades(amount);
-        $scope.modMenuMessage = 'Granted ' + amount + ' territory upgrade' + (amount === 1 ? '' : 's') + '.';
-      };
-
-      $scope.modAddDiscount = function () {
-        var amount = parseInt($scope.modMenu.discountAmount, 10);
-        if (isNaN(amount) || amount <= 0) {
-          $scope.modMenuMessage = 'Enter the number of discount upgrades to grant.';
-          return;
-        }
-        applyDiscountUpgrades(amount);
-        $scope.modMenuMessage = 'Granted ' + amount + ' price discount upgrade' + (amount === 1 ? '' : 's') + '.';
-      };
-
-      $scope.modQuickAddCash = function (amount) {
-        if (amount <= 0) {
-          return;
-        }
-        applyCash(amount);
-        $scope.modMenu.cashAmount = amount;
-        $scope.modMenuMessage = 'Added $' + formatNumber(amount) + ' cash.';
-      };
-
-      $scope.modQuickAddRespect = function (amount) {
-        if (amount <= 0) {
-          return;
-        }
-        applyRespect(amount);
-        $scope.modMenu.respectAmount = amount;
-        $scope.modMenuMessage = 'Added ' + formatNumber(amount) + ' respect.';
-      };
-
-      $scope.modQuickAddTerritory = function (amount) {
-        if (amount <= 0) {
-          return;
-        }
-        applyTerritoryUpgrades(amount);
-        $scope.modMenu.territoryAmount = amount;
-        $scope.modMenuMessage = 'Granted ' + amount + ' territory upgrade' + (amount === 1 ? '' : 's') + '.';
-      };
-
-      $scope.modQuickAddDiscount = function (amount) {
-        if (amount <= 0) {
-          return;
-        }
-        applyDiscountUpgrades(amount);
-        $scope.modMenu.discountAmount = amount;
-        $scope.modMenuMessage = 'Granted ' + amount + ' price discount upgrade' + (amount === 1 ? '' : 's') + '.';
-      };
-
-      $scope.modUnlockAllDrugs = function () {
-        var unlocked = 0;
-        for (var i = 0; i < drugsMaster.length; i++) {
-          if ($scope.getDrugByName(drugsMaster[i].name) === null) {
-            $scope.gameModel.drugs.push(drugsMaster[i]);
-            unlocked++;
-          }
-        }
-        if (unlocked > 0) {
-          $scope.calculateAvailableUpgrades();
-          $scope.updateDealerDrugIndex();
-        }
-        $scope.modMenuMessage = unlocked > 0 ? ('Unlocked ' + unlocked + ' drug' + (unlocked === 1 ? '' : 's') + '.') : 'All drugs are already unlocked.';
-        writeToCookie();
-      };
-
-      $scope.modReleaseDealers = function () {
-        var released = 0;
-        for (var i = 0; i < $scope.gameModel.dealers.length; i++) {
-          if ($scope.gameModel.dealers[i].arrested) {
-            $scope.gameModel.dealers[i].arrested = false;
-            $scope.gameModel.dealers[i].bail = 0;
-            $scope.gameModel.dealers[i].arrestMessage = false;
-            released++;
-          }
-        }
-        $scope.modMenuMessage = released > 0 ? ('Released ' + released + ' arrested dealer' + (released === 1 ? '' : 's') + '.') : 'No dealers are currently arrested.';
-        writeToCookie();
       };
 
       $scope.upgradeUnlocked = function (upgrade) {
@@ -952,13 +684,6 @@ var drugsMaster = createDrugsMaster();
           if (localStorage.getItem("options") !== null) $scope.options = JSON.parse(localStorage.getItem("options"));
         } catch (e) {
           console.log(e);
-        }
-
-        var specialOpsUpdated = ensureSpecialOperationDefaults();
-        if (specialOpsUpdated) {
-          setHeistStatus($scope.gameModel.heistStatus);
-          setInformantStatus($scope.gameModel.informantStatus);
-          writeToCookie();
         }
 
         if ($scope.options.hideTop) {
@@ -1215,6 +940,10 @@ var drugsMaster = createDrugsMaster();
 
         var dealers = $scope.gameModel.dealers.concat().sort(function(a,b){return b.price - a.price;});
 
+        if (specialOps.onTick(updateTime)) {
+          messagesHaveChanged = true;
+        }
+
         if ($scope.levelUpMsg && $scope.levelUpMsgExpires <= updateTime) {
           $scope.levelUpMsg = undefined;
           messagesHaveChanged = true;
@@ -1225,29 +954,12 @@ var drugsMaster = createDrugsMaster();
           $scope.buffMsg = undefined;
           messagesHaveChanged = true;
         }
-        if ($scope.gameModel.informantExpires && $scope.gameModel.informantExpires <= updateTime) {
-          $scope.gameModel.informantExpires = 0;
-          setInformantStatus('Your informant has gone dark. Arrest risk is back to normal.');
-          messagesHaveChanged = true;
-          writeToCookie();
-        }
 
         if ($scope.gameModel.lastDealerRefresh)
           $scope.secondsToDealerRefresh = (($scope.gameModel.lastDealerRefresh + $scope.dealerRefreshRate() - updateTime) / 1000).toFixed();
 
         if ($scope.gameModel.buff)
           $scope.buffMsg = $scope.gameModel.buff.msg.format((($scope.gameModel.buff.expires - updateTime) / 1000).toFixed());
-
-        if ($scope.gameModel.heistInProgress) {
-          var elapsed = Math.max(0, updateTime - $scope.gameModel.heistStartTime);
-          $scope.heistProgress = Math.min(100, (elapsed / HEIST_DURATION_MS) * 100);
-          if ($scope.gameModel.heistCompleteTime <= updateTime) {
-            resolveHeist();
-            messagesHaveChanged = true;
-          }
-        } else if ($scope.heistProgress !== 0) {
-          $scope.heistProgress = 0;
-        }
 
         for (var i = 0; i < $scope.gameModel.drugs.length; i++) {
           var drug = $scope.gameModel.drugs[i];
@@ -1316,7 +1028,7 @@ var drugsMaster = createDrugsMaster();
         }
 
         if (lastSaved < updateTime - 30000) {
-          var arrestThreshold = isInformantActive(updateTime) ? 0.995 : 0.96;
+          var arrestThreshold = specialOps.isInformantActive(updateTime) ? 0.995 : 0.96;
           if (Math.random() > arrestThreshold && $scope.gameModel.totalCashEarned > 30000) {
             var dealerToArrest = $scope.gameModel.dealers[Math.floor(Math.random() * $scope.gameModel.dealers.length)];
             if (!dealerToArrest.arrested && !dealerToArrest.payCops) {
@@ -1351,28 +1063,23 @@ var drugsMaster = createDrugsMaster();
 
         function onReady() {
 
-          for (var i=0; i < $scope.prestigeDealers.length; i++) {
-            for (var j=0; j < $scope.gameModel.dealers.length; j++) {
-              if ($scope.prestigeDealers[i].seed == $scope.gameModel.dealers[j].seed) {
-                $scope.prestigeDealers[i] = $scope.gameModel.dealers[j];
-              }
+        for (var i=0; i < $scope.prestigeDealers.length; i++) {
+          for (var j=0; j < $scope.gameModel.dealers.length; j++) {
+            if ($scope.prestigeDealers[i].seed == $scope.gameModel.dealers[j].seed) {
+              $scope.prestigeDealers[i] = $scope.gameModel.dealers[j];
             }
           }
+        }
 
-          ensureSpecialOperationDefaults();
-          setHeistStatus($scope.gameModel.heistStatus);
-          setInformantStatus($scope.gameModel.informantStatus);
-          if ($scope.gameModel.heistInProgress) {
-            var elapsed = Math.max(0, Date.now() - $scope.gameModel.heistStartTime);
-            $scope.heistProgress = Math.min(100, (elapsed / HEIST_DURATION_MS) * 100);
-          } else {
-            $scope.heistProgress = 0;
-          }
+        specialOps.onReady();
+        if (modMenu.ensureState) {
+          modMenu.ensureState();
+        }
 
-          if (typeof $scope.gameModel.respect === "undefined") {
-            $scope.gameModel.respect = 0;
-            $scope.gameModel.muscle = [muscleMaster[0]];
-          }
+        if (typeof $scope.gameModel.respect === "undefined") {
+          $scope.gameModel.respect = 0;
+          $scope.gameModel.muscle = [muscleMaster[0]];
+        }
 
           if (typeof $scope.gameModel.discountUpgrades === "undefined")
           $scope.gameModel.discountUpgrades = 0;
@@ -1495,41 +1202,5 @@ var drugsMaster = createDrugsMaster();
             $scope.importError = "Game save could not be parsed";
           }
         };
-
-      function resolveHeist() {
-        var completionTimestamp = $scope.gameModel.heistCompleteTime || Date.now();
-        var baseCash = Math.max(25000, $scope.gameModel.totalCashEarned * 0.02);
-        var baseRespect = Math.max(100, ($scope.gameModel.respectPerSecond || 1) * 120);
-        var cashReward = Math.round(baseCash * (1.2 + Math.random()));
-        var respectReward = Math.round(baseRespect * (0.6 + Math.random()));
-        var summary = 'Heist complete! The crew delivered ' + formatMoney(cashReward) + ' and ' + formatNumber(respectReward) + ' respect.';
-        var bonusRoll = Math.random();
-        if (bonusRoll > 0.9) {
-          cashReward = Math.round(cashReward * 2);
-          respectReward = Math.round(respectReward * 1.5);
-          if (Math.random() > 0.5) {
-            $scope.gameModel.territoryUpgrades += 1;
-            summary += ' They also claimed new territory for the empire!';
-          } else {
-            $scope.gameModel.discountUpgrades += 1;
-            summary += ' They negotiated a permanent supplier discount!';
-          }
-        } else if (bonusRoll < 0.12) {
-          var penalty = Math.round(cashReward * 0.25);
-          cashReward = Math.max(0, cashReward - penalty);
-          summary += ' Heat from the cops forced you to part with ' + formatMoney(penalty) + ' in hush money.';
-        }
-        $scope.gameModel.cash += cashReward;
-        $scope.gameModel.totalCashEarned += cashReward;
-        $scope.gameModel.respect += respectReward;
-        $scope.gameModel.heistInProgress = false;
-        $scope.gameModel.heistStartTime = 0;
-        $scope.gameModel.heistCompleteTime = 0;
-        $scope.gameModel.lastHeistTime = Math.max(completionTimestamp, Date.now());
-        $scope.heistProgress = 100;
-        setHeistStatus(summary);
-        writeToCookie();
-        return summary;
-      }
 
       }]);
