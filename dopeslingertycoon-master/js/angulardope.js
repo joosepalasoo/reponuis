@@ -460,21 +460,49 @@ var drugsMaster = createDrugsMaster();
         $scope.gameModel.informantStatus = message;
       }
       function ensureSpecialOperationDefaults() {
-        if (typeof $scope.gameModel.heistInProgress === 'undefined')
+        var updated = false;
+        if (typeof $scope.gameModel.heistInProgress === 'undefined') {
           $scope.gameModel.heistInProgress = false;
-        if (typeof $scope.gameModel.heistStartTime === 'undefined')
+          updated = true;
+        }
+        if (typeof $scope.gameModel.heistStartTime === 'undefined') {
           $scope.gameModel.heistStartTime = 0;
-        if (typeof $scope.gameModel.heistCompleteTime === 'undefined')
+          updated = true;
+        }
+        if (typeof $scope.gameModel.heistCompleteTime === 'undefined') {
           $scope.gameModel.heistCompleteTime = 0;
-        if (typeof $scope.gameModel.lastHeistTime === 'undefined')
+          updated = true;
+        }
+        if (typeof $scope.gameModel.lastHeistTime === 'undefined') {
           $scope.gameModel.lastHeistTime = 0;
-        if (typeof $scope.gameModel.heistStatus === 'undefined')
+          updated = true;
+        }
+        if (typeof $scope.gameModel.heistStatus === 'undefined') {
           $scope.gameModel.heistStatus = 'Crew is idle and ready for orders.';
-        if (typeof $scope.gameModel.informantExpires === 'undefined')
+          updated = true;
+        }
+        if (typeof $scope.gameModel.informantExpires === 'undefined') {
           $scope.gameModel.informantExpires = 0;
-        if (typeof $scope.gameModel.informantStatus === 'undefined')
+          updated = true;
+        }
+        if (typeof $scope.gameModel.informantStatus === 'undefined') {
           $scope.gameModel.informantStatus = 'No informants currently on the payroll.';
+          updated = true;
+        }
+        return updated;
       }
+
+      $scope.$watch(function () { return $scope.gameModel && $scope.gameModel.heistStatus; }, function (value) {
+        if (typeof value === 'string' && value !== $scope.heistStatusMessage) {
+          $scope.heistStatusMessage = value;
+        }
+      });
+
+      $scope.$watch(function () { return $scope.gameModel && $scope.gameModel.informantStatus; }, function (value) {
+        if (typeof value === 'string' && value !== $scope.informantStatusMessage) {
+          $scope.informantStatusMessage = value;
+        }
+      });
       function isInformantActive(referenceTime) {
         var checkTime = referenceTime || Date.now();
         return $scope.gameModel.informantExpires && $scope.gameModel.informantExpires > checkTime;
@@ -924,6 +952,13 @@ var drugsMaster = createDrugsMaster();
           if (localStorage.getItem("options") !== null) $scope.options = JSON.parse(localStorage.getItem("options"));
         } catch (e) {
           console.log(e);
+        }
+
+        var specialOpsUpdated = ensureSpecialOperationDefaults();
+        if (specialOpsUpdated) {
+          setHeistStatus($scope.gameModel.heistStatus);
+          setInformantStatus($scope.gameModel.informantStatus);
+          writeToCookie();
         }
 
         if ($scope.options.hideTop) {
